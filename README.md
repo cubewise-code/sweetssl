@@ -1,40 +1,54 @@
-Command leproxy implements https reverse proxy with automatic Letsencrypt
-usage for multiple hostnames/backends
+**SweetSSL** is a lightweight easy to use reverse proxy written in **Go** that provides easy to use and FREE **Let's Encrypt** SSL certificates. It can run on **Linux** or as a **Windows** service.
 
-Install:
+It uses a mapping file to direct host names (`mysite.com`), a prefix (`/my-site`) or all traffic (`any`) to a backend server. The backend server can be a IP address, `HTTP`/`HTTPS` or can be a directory on disk (for static content).
 
-	go get github.com/artyom/leproxy	
+The mapping file is watched on the file system and any changes are automatically added to the proxy without a restart.
 
-Run:
+Your email address is required when using the **Let's Encrypt** certificates. This is for **Let's Encrypt** to contact your about any issues.
 
-	leproxy -addr :https -map /path/to/mapping.yml -cacheDir /path/to/letsencrypt
+Run `HTTPS` with default `mapping.yml` file:
+
+	sweetssl -email youremail@yourdomain.com
+
+Run `HTTPS` with custom mapping path:
+
+	sweetssl -email youremail@yourdomain.com -mapping "otherfile.yml"
+
+Run `HTTPS` and allow self signed certificates on backend servers:
+
+	sweetssl -email youremail@yourdomain.com -tls-skip-verify
+
+Run `HTTP` with default mapping:
+
+	sweetssl -http-only
 
 Install as a Windows service:
 
-	leproxy -install
+	sweetssl -install -email youremail@yourdomain.com
 
-`mapping.yml` contains host-to-backend mapping, where backend can be specified as:
+Get GoLang Source:
 
- * http/https url for http(s) connections to backend *without* passing "Host"
-   header from request;
- * host:port for http over TCP connections to backend;
- * absolute path for http over unix socket connections;
- * @name for http over abstract unix socket connections (linux only);
- * absolute path with trailing slash to serve files from given directory.
+	go get github.com/cubewise-code/sweetssl
+
+Build Go source:
+
+	go build -o sweetssl.exe
+
+
+`mapping.yml` contains host-to-backend mapping:
 
 Example:
 
-	subdomain1.example.com: 127.0.0.1:8080
-	subdomain2.example.com: /var/run/http.socket
-	subdomain3.example.com: @abstractUnixSocket
-	uploads.example.com: https://uploads-bucket.s3.amazonaws.com
-	static.example.com: /var/www/
+```yaml
+   # Examples
+   subdomain1.example.com: 127.0.0.1:8080
+   uploads.example.com: https://uploads-bucket.s3.amazonaws.com
+   static.linux.com: /var/www/
+   static.windows.com: C:\Temp\
+   /prod: http://prodserver/api/v1
+   /dev: http://devserver/api/v1
+   any: C:\Temp\
+   any: https://localhost:8883/api/v1
+```
 
-Note that when `@name` backend is specified, connection to abstract unix socket
-is made in a manner compatible with some other implementations like uWSGI, that
-calculate addrlen including trailing zero byte despite [documentation not
-requiring that](http://man7.org/linux/man-pages/man7/unix.7.html). It won't
-work with other implementations that calculate addrlen differently (i.e. by
-taking into account only `strlen(addr)` like Go, or even `UNIX_PATH_MAX`).
-
-> The mapping file can be dynamically updated and any changes or additions will be available. Deletions require a restart to be removed.
+**SweetSSL** is a fork of the great [**leproxy**](https://github.com/artyom/leproxy) and uses the [**certmagic**](https://github.com/mholt/certmagic) library for **Let's Encrypt** support.
