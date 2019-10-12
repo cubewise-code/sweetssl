@@ -4,6 +4,9 @@ It uses a mapping file to direct host names (`mysite.com`), a prefix (`/my-site`
 
 The mapping file is watched on the file system and any changes are automatically added to the proxy without a restart.
 
+### Download
+You can download builds from the release page: [**Releases**](/releases)
+
 ### How to use SSL with SweetSSL
 
 1. Create a DNS entry for each host name pointing to your public IP address (A record) or create CNAME records pointing to an existing A record.
