@@ -1,3 +1,6 @@
+
+![SweetSSL](http://downloads.cubewise.com/web_assets/sweetssl/sweetssl.png)
+
 **SweetSSL** is a lightweight easy to use *reverse proxy* written in **Go** that provides FREE **Let's Encrypt** SSL certificates. It can run on **Linux** or as a **Windows** service.
 
 It uses a mapping file to direct host names (`mysite.com`), a prefix (`/my-site`) or all traffic (`any`) to a backend server. The backend server can be a IP address, `HTTP`/`HTTPS` web server or can be a directory on disk (for static content).
