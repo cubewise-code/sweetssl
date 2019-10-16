@@ -11,7 +11,7 @@
          "mode": "auto",
          "program": "${fileDirname}",
          "env": {},
-         "args": ["-addr", ":8888", "-http-only", "-tls-skip-verify"]
+         "args": ["-addr", ":8888", "-http-only", "-tls-skip-verify", "-cache-dir", "C:\\Temp\\"]
       }
    ]
 }

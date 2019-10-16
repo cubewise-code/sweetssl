@@ -1,4 +1,4 @@
-module github.com/cubewise-tryan/leproxy
+module github.com/cubewise-code/sweetssl
 
 require (
 	github.com/artyom/autoflags v1.1.0

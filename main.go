@@ -82,16 +82,20 @@ func main() {
 
 	autoflags.Parse(&args)
 
+	if strings.HasSuffix(args.CacheDir, "\\") {
+		args.CacheDir = args.CacheDir[:len(args.CacheDir)-1]
+	}
+
 	// Add the arguments to Windows services
 	serviceArgs := []string{
 		"-addr",
-		fmt.Sprintf("\"%s\"", args.Addr),
+		args.Addr,
 		"-http",
-		fmt.Sprintf("\"%s\"", args.HTTP),
-		"-conf",
-		fmt.Sprintf("\"%s\"", args.MappingPath),
+		args.HTTP,
+		"-mapping",
+		args.MappingPath,
 		"-cache-dir",
-		fmt.Sprintf("\"%s\"", args.CacheDir),
+		args.CacheDir,
 	}
 	if args.HTTPOnly {
 		serviceArgs = append(serviceArgs, "-http-only")
