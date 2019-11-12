@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -328,6 +329,8 @@ func loadProxies(mapping map[string]string) error {
 		proxyCounter++
 	}
 	log.Printf("%v mappings have been loaded", proxyCounter)
+	ctx := context.Background()
+	certmagic.ManageAsync(ctx, hostnames(mapping))
 	return nil
 }
 
