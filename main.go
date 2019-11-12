@@ -144,6 +144,15 @@ func main() {
 			log.Fatalf("Service removed: %s", svcConfig.DisplayName)
 		}
 	} else {
+		if !service.Interactive() {
+			// Send logs to file when running as a windows service
+			logfilePath := filepath.Join(wd, "sweetssl.log")
+			f, err := os.OpenFile(logfilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+			if err != nil {
+				log.Fatalf("Unable to open log file %s: %v", logfilePath, err)
+			}
+			log.SetOutput(f)
+		}
 		err = s.Run()
 		if err != nil {
 			log.Fatalf("Unable to run application: %s", err.Error())
