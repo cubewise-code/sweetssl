@@ -226,6 +226,8 @@ func run() error {
 					fmt.Println("ERROR", event.Name, event.Op, err)
 				} else {
 					loadProxies(mapping)
+					ctx := context.Background()
+					certmagic.ManageAsync(ctx, hostnames(mapping))
 				}
 			case err := <-watcher.Errors:
 				fmt.Println("ERROR", err)
@@ -338,8 +340,6 @@ func loadProxies(mapping map[string]string) error {
 		proxyCounter++
 	}
 	log.Printf("%v mappings have been loaded", proxyCounter)
-	ctx := context.Background()
-	certmagic.ManageAsync(ctx, hostnames(mapping))
 	return nil
 }
 
