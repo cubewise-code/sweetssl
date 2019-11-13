@@ -60,3 +60,22 @@ func (proxy *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+type proxyTransport struct {
+	CapturedTransport http.RoundTripper
+}
+
+func (t *proxyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	// Use the real transport to execute the request
+	response, err := transport.RoundTrip(r)
+	setCookie := response.Header.Get("SET-COOKIE")
+	if setCookie != "" {
+		parts := strings.Split(setCookie, ";")
+		newSetCookie := parts[0] + "; Path=/"
+		if len(parts) > 2 {
+			newSetCookie += ";" + parts[2]
+		}
+		response.Header.Set("SET-COOKIE", newSetCookie)
+	}
+	return response, err
+}

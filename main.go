@@ -53,6 +53,7 @@ type runArgs struct {
 	Email         string `flag:"email,Contact email address presented to letsencrypt CA"`
 	Install       bool   `flag:"install,Installs as a windows service"`
 	Remove        bool   `flag:"remove,Removes the windows service"`
+	Debug         bool   `flag:"debug,Log the file path of requests"`
 }
 
 var (
@@ -68,6 +69,7 @@ var (
 		},
 	}
 	proxyCounter int
+	transport    http.RoundTripper
 )
 
 func main() {
@@ -197,6 +199,19 @@ func run() error {
 	err = godotenv.Load("env")
 	if !os.IsNotExist(err) && err != nil {
 		log.Fatal("Error loading .env file")
+	}
+
+	transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: args.TLSSkipVerify},
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
 	}
 
 	mapping, err := readMapping(args.MappingPath)
@@ -392,17 +407,19 @@ func newSingleHostReverseProxy(target *url.URL, prefix string) *httputil.Reverse
 			req.Header.Set("User-Agent", "")
 		}
 		req.Header.Set("X-Forwarded-Proto", "https")
+		if args.Debug {
+			log.Println(req.URL.String())
+		}
 	}
 	if args.TLSSkipVerify {
 		return &httputil.ReverseProxy{
-			Director: director,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
+			Director:  director,
+			Transport: &proxyTransport{},
 		}
 	}
 	return &httputil.ReverseProxy{
-		Director: director,
+		Director:  director,
+		Transport: &proxyTransport{},
 	}
 }
 
