@@ -278,15 +278,15 @@ func run() error {
 
 }
 
-func loadProxies(mapping map[string]string) error {
+func loadProxies(mapping map[string]Host) error {
 	if len(mapping) == 0 {
 		return fmt.Errorf("empty mapping")
 	}
 	// Add the each mapping
 	proxyCounter = 0
-	for hostname, backendAddr := range mapping {
-		hostname, backendAddr := hostname, backendAddr // intentional shadowing
-		if proxy.Exists(hostname, backendAddr) {
+	for hostname, host := range mapping {
+		hostname, host := hostname, host // intentional shadowing
+		if proxy.Exists(hostname, host.Target) {
 			// The handler already exists and hasn't changed
 			proxyCounter++
 			continue
@@ -296,37 +296,37 @@ func loadProxies(mapping map[string]string) error {
 			continue
 		}
 		network := "tcp"
-		if backendAddr != "" && backendAddr[0] == '@' && runtime.GOOS == "linux" {
+		if host.Target != "" && host.Target[0] == '@' && runtime.GOOS == "linux" {
 			// append \0 to address so addrlen for connect(2) is
 			// calculated in a way compatible with some other
 			// implementations (i.e. uwsgi)
-			network, backendAddr = "unix", backendAddr+string(0)
-		} else if filepath.IsAbs(backendAddr) {
+			network, host.Target = "unix", host.Target+string(0)
+		} else if filepath.IsAbs(host.Target) {
 			network = "unix"
-			if strings.HasSuffix(strings.Trim(backendAddr, ""), string(os.PathSeparator)) {
+			if strings.HasSuffix(strings.Trim(host.Target, ""), string(os.PathSeparator)) {
 				// path specified as directory with explicit trailing
 				// slash; add this path as static site
 				proxy.Handle(hostname, &ProxyHandler{
 					HostName:   hostname,
-					TargetName: backendAddr,
-					Handler:    http.FileServer(http.Dir(backendAddr)),
+					TargetName: host.Target,
+					Handler:    http.FileServer(http.Dir(host.Target)),
 				})
 				proxyCounter++
 				continue
 			}
-		} else if u, err := url.Parse(backendAddr); err == nil {
+		} else if u, err := url.Parse(host.Target); err == nil {
 			switch u.Scheme {
 			case "http", "https":
 				prefix := ""
 				if strings.HasPrefix(hostname, "/") {
 					prefix = hostname
 				}
-				rp := newSingleHostReverseProxy(u, prefix)
+				rp := newSingleHostReverseProxy(u, prefix, host.SetCookiePath)
 				rp.ErrorLog = log.New(ioutil.Discard, "", 0)
 				rp.BufferPool = bufPool{}
 				proxy.Handle(hostname, &ProxyHandler{
 					HostName:   hostname,
-					TargetName: backendAddr,
+					TargetName: host.Target,
 					Handler:    rp,
 				})
 				proxyCounter++
@@ -341,7 +341,7 @@ func loadProxies(mapping map[string]string) error {
 			},
 			Transport: &http.Transport{
 				Dial: func(netw, addr string) (net.Conn, error) {
-					return net.DialTimeout(network, backendAddr, 5*time.Second)
+					return net.DialTimeout(network, host.Target, 5*time.Second)
 				},
 			},
 			ErrorLog:   log.New(ioutil.Discard, "", 0),
@@ -349,7 +349,7 @@ func loadProxies(mapping map[string]string) error {
 		}
 		proxy.Handle(hostname, &ProxyHandler{
 			HostName:   hostname,
-			TargetName: backendAddr,
+			TargetName: host.Target,
 			Handler:    rp,
 		})
 		proxyCounter++
@@ -358,7 +358,7 @@ func loadProxies(mapping map[string]string) error {
 	return nil
 }
 
-func readMapping(file string) (map[string]string, error) {
+func readMapping(file string) (map[string]Host, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -369,14 +369,22 @@ func readMapping(file string) (map[string]string, error) {
 	if _, err := io.Copy(b, lr); err != nil {
 		return nil, err
 	}
-	m := make(map[string]string)
+	m := map[string]Host{}
 	if err := yaml.Unmarshal(b.Bytes(), &m); err != nil {
-		return nil, err
+		mLegacy := map[string]string{}
+		if err := yaml.Unmarshal(b.Bytes(), &mLegacy); err != nil {
+			return nil, err
+		}
+		for key, value := range mLegacy {
+			m[key] = Host{
+				Target: value,
+			}
+		}
 	}
 	return m, nil
 }
 
-func hostnames(m map[string]string) []string {
+func hostnames(m map[string]Host) []string {
 	out := []string{}
 	if args.HostName != "" {
 		out = append(out, args.HostName)
@@ -392,7 +400,7 @@ func hostnames(m map[string]string) []string {
 
 // newSingleHostReverseProxy is a copy of httputil.NewSingleHostReverseProxy
 // with addition of "X-Forwarded-Proto" header.
-func newSingleHostReverseProxy(target *url.URL, prefix string) *httputil.ReverseProxy {
+func newSingleHostReverseProxy(target *url.URL, prefix string, setCookiePath bool) *httputil.ReverseProxy {
 	targetQuery := target.RawQuery
 	director := func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
@@ -411,15 +419,11 @@ func newSingleHostReverseProxy(target *url.URL, prefix string) *httputil.Reverse
 			log.Println(req.URL.String())
 		}
 	}
-	if args.TLSSkipVerify {
-		return &httputil.ReverseProxy{
-			Director:  director,
-			Transport: &proxyTransport{},
-		}
-	}
 	return &httputil.ReverseProxy{
-		Director:  director,
-		Transport: &proxyTransport{},
+		Director: director,
+		Transport: &proxyTransport{
+			SetCookiePath: setCookiePath,
+		},
 	}
 }
 

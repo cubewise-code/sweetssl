@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -9,6 +10,12 @@ import (
 // Proxy contains and servers the handlers for each hostname
 type Proxy struct {
 	hostMap sync.Map
+}
+
+// Host contains the settings for each host
+type Host struct {
+	Target        string
+	SetCookiePath bool
 }
 
 // Handle adds a handler if it doesn't exist
@@ -62,20 +69,37 @@ func (proxy *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type proxyTransport struct {
+	SetCookiePath     bool
 	CapturedTransport http.RoundTripper
 }
 
 func (t *proxyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	// Use the real transport to execute the request
 	response, err := transport.RoundTrip(r)
-	setCookie := response.Header.Get("SET-COOKIE")
-	if setCookie != "" {
-		parts := strings.Split(setCookie, ";")
-		newSetCookie := parts[0] + "; Path=/"
-		if len(parts) > 2 {
-			newSetCookie += ";" + parts[2]
+	if err != nil {
+		transport.(*http.Transport).CloseIdleConnections()
+		log.Print("Unable to get response from target server: " + err.Error())
+		return nil, err
+	}
+	if response.StatusCode >= 500 {
+		transport.(*http.Transport).CloseIdleConnections()
+	}
+	if t.SetCookiePath {
+		for name, values := range response.Header {
+			if strings.EqualFold(name, "SET-COOKIE") {
+				// Remove the current SET-COOKIE headers
+				response.Header.Del("SET-COOKIE")
+				for _, value := range values {
+					parts := strings.Split(value, ";")
+					// Update the cookie with a root path
+					newSetCookie := parts[0] + "; Path=/"
+					if len(parts) > 2 {
+						newSetCookie += ";" + parts[2]
+					}
+					response.Header.Add("SET-COOKIE", newSetCookie)
+				}
+			}
 		}
-		response.Header.Set("SET-COOKIE", newSetCookie)
 	}
 	return response, err
 }
