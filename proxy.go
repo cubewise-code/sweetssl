@@ -34,9 +34,6 @@ func (proxy *Proxy) Exists(host, target string) bool {
 
 // ServeHTTP finds the handler if one exists and then returns the result
 func (proxy *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if args.HSTS {
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-	}
 	// Match to hostname
 	result, ok := proxy.hostMap.Load(r.Host)
 	if ok {
@@ -100,6 +97,9 @@ func (t *proxyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 				}
 			}
 		}
+	}
+	if args.HSTS {
+		response.Header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 	}
 	return response, err
 }
