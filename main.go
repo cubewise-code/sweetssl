@@ -22,6 +22,7 @@ import (
 	"github.com/artyom/autoflags"
 	"github.com/fsnotify/fsnotify"
 	"github.com/joho/godotenv"
+	"github.com/kabukky/httpscerts"
 	"github.com/kardianos/service"
 	"github.com/mholt/certmagic"
 	yaml "gopkg.in/yaml.v2"
@@ -52,6 +53,7 @@ type runArgs struct {
 	HostName      string `flag:"hostname,The default host name to be used with any and / prefix options"`
 	Email         string `flag:"email,Contact email address presented to letsencrypt CA"`
 	Staging       bool   `flag:"staging,Use the letsencrypt staging server"`
+	SelfSign      bool   `flag:"selfsign,Use a self-signed certificate for HTTPS instead letsencrypt"`
 	Install       bool   `flag:"install,Installs as a windows service"`
 	Remove        bool   `flag:"remove,Removes the windows service"`
 	Debug         bool   `flag:"debug,Log the file path of requests"`
@@ -264,6 +266,27 @@ func run() error {
 			Addr:    args.Addr,
 		}
 		return srv.ListenAndServe()
+	} else if args.SelfSign {
+		// Use the first mapping for the host name
+		hostname := "localhost"
+		for k := range mapping {
+			hostname = k
+			break
+		}
+		hostname = strings.ToLower(hostname)
+		// Use self-signed certificate instead of letsencrypt
+		certPath := filepath.Join(args.CacheDir, "self-signed-"+hostname+"-cert.pem")
+		keyPath := filepath.Join(args.CacheDir, "self-signed-"+hostname+"-key.pem")
+		err := httpscerts.Check(certPath, keyPath)
+		// If they are not available, generate new ones.
+		if err != nil {
+
+			err = httpscerts.Generate(certPath, keyPath, hostname)
+			if err != nil {
+				return err
+			}
+		}
+		return http.ListenAndServeTLS(":443", certPath, keyPath, &proxy)
 	}
 
 	// Read and agree to your CA's legal documents
