@@ -51,6 +51,7 @@ type runArgs struct {
 	HSTS          bool   `flag:"hsts,Add Strict-Transport-Security header"`
 	HostName      string `flag:"hostname,The default host name to be used with any and / prefix options"`
 	Email         string `flag:"email,Contact email address presented to letsencrypt CA"`
+	Staging       bool   `flag:"staging,Use the letsencrypt staging server"`
 	Install       bool   `flag:"install,Installs as a windows service"`
 	Remove        bool   `flag:"remove,Removes the windows service"`
 	Debug         bool   `flag:"debug,Log the file path of requests"`
@@ -273,6 +274,11 @@ func run() error {
 
 	// Set the cache path
 	certmagic.Default.Storage = &certmagic.FileStorage{Path: args.CacheDir}
+
+	if args.Staging {
+		fmt.Println("Using staging CA")
+		certmagic.Default.CA = certmagic.LetsEncryptStagingCA
+	}
 
 	return certmagic.HTTPS(hostnames(mapping), &proxy)
 
